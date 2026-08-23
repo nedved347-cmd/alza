@@ -36,6 +36,18 @@
 
 <h1>Evidence AlzaBoxů</h1>
 
+<!-- QR KÓD -->
+<div class="card">
+    <h2>QR kód rozvozu</h2>
+    <input type="text" id="qrInput" placeholder="Vlož URL QR kódu" 
+        style="width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;margin-bottom:10px;">
+    <button class="btn-submit" onclick="saveQR()">Uložit QR kód</button>
+
+    <div id="qrDisplay" style="margin-top:15px;text-align:center;">
+        Žádný QR kód není uložen.
+    </div>
+</div>
+
 <button class="add-box-btn" onclick="addBox()">➕ Přidat nový box</button>
 
 <div id="boxes"></div>
@@ -43,12 +55,43 @@
 <div class="card">
     <h2>Historie všech boxů</h2>
     <div id="logHistory">Žádné záznamy.</div>
+    <button class="btn-submit" style="background:#ff3b30;" onclick="deleteAllLogs()">Smazat celou historii</button>
+</div>
+
+<div class="card">
+    <h2>Celkové součty</h2>
+    <div id="totals">Žádné záznamy.</div>
 </div>
 
 <script>
 let boxCounter = 0;
 
-// Přidání nového boxu
+/* QR KÓD */
+function saveQR() {
+    const qr = document.getElementById("qrInput").value;
+    localStorage.setItem("qr_code", qr);
+    renderQR();
+}
+
+function renderQR() {
+    const qr = localStorage.getItem("qr_code");
+    const div = document.getElementById("qrDisplay");
+
+    if (!qr) {
+        div.innerHTML = "Žádný QR kód není uložen.";
+        return;
+    }
+
+    if (qr.startsWith("http")) {
+        div.innerHTML = `<img src="${qr}" style="width:200px;">`;
+    } else {
+        div.innerHTML = `<b>${qr}</b>`;
+    }
+}
+
+renderQR();
+
+/* PŘIDÁNÍ BOXU */
 function addBox() {
     boxCounter++;
     const boxId = `box-${boxCounter}`;
@@ -56,6 +99,9 @@ function addBox() {
     const boxHTML = `
         <div class="card" id="${boxId}">
             <h2>Box ${boxCounter}</h2>
+
+            <input type="text" id="${boxId}-name" placeholder="Název boxu" 
+                style="width:100%;padding:8px;margin-bottom:10px;border-radius:8px;border:1px solid #ccc;">
 
             <div class="counter-row">
                 <span>Vrácené</span>
@@ -84,6 +130,24 @@ function addBox() {
                 </div>
             </div>
 
+            <div class="counter-row">
+                <span>Poškozeno</span>
+                <div class="counter-controls">
+                    <button class="btn-counter" onclick="changeCount('${boxId}', 'damaged', -1)">-</button>
+                    <span id="${boxId}-damaged">0</span>
+                    <button class="btn-counter" onclick="changeCount('${boxId}', 'damaged', 1)">+</button>
+                </div>
+            </div>
+
+            <div class="counter-row">
+                <span>Nevejde se</span>
+                <div class="counter-controls">
+                    <button class="btn-counter" onclick="changeCount('${boxId}', 'nospace', -1)">-</button>
+                    <span id="${boxId}-nospace">0</span>
+                    <button class="btn-counter" onclick="changeCount('${boxId}', 'nospace', 1)">+</button>
+                </div>
+            </div>
+
             <div class="checkbox-row">
                 <label><b>Box hotov</b></label>
                 <input type="checkbox" id="${boxId}-finished">
@@ -96,7 +160,7 @@ function addBox() {
     document.getElementById("boxes").insertAdjacentHTML("beforeend", boxHTML);
 }
 
-// Změna počítadel
+/* ZMĚNA POČÍTADLA */
 function changeCount(boxId, type, val) {
     const el = document.getElementById(`${boxId}-${type}`);
     let current = parseInt(el.innerText);
@@ -104,15 +168,21 @@ function changeCount(boxId, type, val) {
     el.innerText = current;
 }
 
-// Uložení boxu
+/* ULOŽENÍ BOXU */
 function saveBox(boxId) {
     const logEntry = {
         box: boxId,
         boxNumber: boxId.split("-")[1],
+        name: document.getElementById(`${boxId}-name`).value || `Box ${boxId.split("-")[1]}`,
         timestamp: new Date().toLocaleString('cs-CZ'),
+
         returned: parseInt(document.getElementById(`${boxId}-returned`).innerText),
         canceled: parseInt(document.getElementById(`${boxId}-canceled`).innerText),
         invalid: parseInt(document.getElementById(`${boxId}-invalid`).innerText),
+
+        damaged: parseInt(document.getElementById(`${boxId}-damaged`).innerText),
+        nospace: parseInt(document.getElementById(`${boxId}-nospace`).innerText),
+
         finished: document.getElementById(`${boxId}-finished`).checked
     };
 
@@ -121,11 +191,12 @@ function saveBox(boxId) {
     localStorage.setItem('alza_logs', JSON.stringify(logs));
 
     renderLogs();
+    renderTotals();
 
-    alert(`Box ${logEntry.boxNumber} uložen.`);
+    alert(`Box ${logEntry.name} uložen.`);
 }
 
-// Vykreslení historie
+/* HISTORIE */
 function renderLogs() {
     let logs = JSON.parse(localStorage.getItem('alza_logs') || '[]');
     const container = document.getElementById('logHistory');
@@ -135,21 +206,80 @@ function renderLogs() {
         return;
     }
 
-    container.innerHTML = logs.map(l => `
+    container.innerHTML = logs.map((l, index) => `
         <div class="log-item">
             <div class="log-date">${l.timestamp}</div>
-            <div><b>Box ${l.boxNumber}</b></div>
+            <div><b>${l.name}</b></div>
             <div>Vrácené: <b>${l.returned}</b> | Storno: <b>${l.canceled}</b> | Kódy: <b>${l.invalid}</b></div>
+            <div>Poškozeno: <b>${l.damaged}</b> | Nevejde se: <b>${l.nospace}</b></div>
             <div style="margin-top: 4px;">
                 Stav: <span class="badge ${l.finished ? 'badge-success' : 'badge-danger'}">
                     ${l.finished ? 'HOTOVO' : 'NEDONOSENO'}
                 </span>
             </div>
+
+            <button onclick="deleteLog(${index})" 
+                style="margin-top:10px;background:#ff3b30;color:white;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;">
+                Smazat
+            </button>
         </div>
     `).join('');
 }
 
+/* SMAZÁNÍ JEDNOHO ZÁZNAMU */
+function deleteLog(index) {
+    let logs = JSON.parse(localStorage.getItem('alza_logs') || '[]');
+    logs.splice(index, 1);
+    localStorage.setItem('alza_logs', JSON.stringify(logs));
+    renderLogs();
+    renderTotals();
+}
+
+/* SMAZÁNÍ CELÉ HISTORIE */
+function deleteAllLogs() {
+    if (!confirm("Opravdu smazat celou historii?")) return;
+    localStorage.removeItem("alza_logs");
+    renderLogs();
+    renderTotals();
+}
+
+/* CELKOVÉ SOUČTY */
+function renderTotals() {
+    let logs = JSON.parse(localStorage.getItem('alza_logs') || '[]');
+    const t = document.getElementById("totals");
+
+    if (logs.length === 0) {
+        t.innerHTML = "Žádné záznamy.";
+        return;
+    }
+
+    const sum = {
+        returned: 0,
+        canceled: 0,
+        invalid: 0,
+        damaged: 0,
+        nospace: 0
+    };
+
+    logs.forEach(l => {
+        sum.returned += l.returned;
+        sum.canceled += l.canceled;
+        sum.invalid += l.invalid;
+        sum.damaged += l.damaged;
+        sum.nospace += l.nospace;
+    });
+
+    t.innerHTML = `
+        <b>Vrácené:</b> ${sum.returned}<br>
+        <b>Storno:</b> ${sum.canceled}<br>
+        <b>Neplatné kódy:</b> ${sum.invalid}<br>
+        <b>Poškozeno:</b> ${sum.damaged}<br>
+        <b>Nevejde se:</b> ${sum.nospace}
+    `;
+}
+
 renderLogs();
+renderTotals();
 </script>
 
 </body>
