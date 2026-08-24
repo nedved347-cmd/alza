@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Evidence AlzaBoxů – Závěrečný report</title>
+
+<style>
+  :root{
+    --bg:#f2f2f7;
+    --card:#ffffff;
+    --primary:#007aff;
+    --accent:#34c759;
+    --danger:#ff3b30;
+    --muted:#8e8e93;
+    --glass: rgba(255,255,255,0.6);
+    --radius:12px;
+    --shadow: 0 6px 18px rgba(0,0,0,0.06);
+    --mono: "Segoe UI", Roboto, -apple-system, system-ui, sans-serif;
+  }
+
+  *{box-sizing:border-box;font-family:var(--mono);margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    padding:18px;
+    color:#111;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+
+  header{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+  h1{color:var(--primary);font-size:20px}
+  .subtitle{color:var(--muted);font-size:13px}
+
+  .layout{
+    display:grid;
+    grid-template-columns: 1fr 360px;
+    gap:16px;
+    align-items:start;
+  }
+
+  /* Card */
+  .card{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:14px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+
+  /* QR area */
+  .qr-area{display:flex;flex-direction:column;gap:8px}
+  #qrDisplay img{width:200px;border-radius:10px;display:block;margin:8px auto}
+
+  /* Inputs */
+  label{display:block;font-weight:600;margin-top:8px;font-size:13px}
+  input[type="text"], input[type="time"], textarea{
+    width:100%;padding:8px;border-radius:10px;border:1px solid #e6e6ea;margin-top:6px;
+    transition:box-shadow .15s, border-color .15s;
+  }
+  input[type="text"]:focus, input[type="time"]:focus, textarea:focus{
+    outline:none;border-color:var(--primary);box-shadow:0 6px 18px rgba(0,122,255,0.08);
+  }
+  textarea{min-height:80px;resize:vertical;padding:10px}
+
+  /* Buttons */
+  .btn{
+    display:inline-block;width:100%;padding:12px;border-radius:10px;border:none;background:var(--primary);
+    color:#fff;font-weight:700;cursor:pointer;margin-top:10px;transition:transform .12s,box-shadow .12s;
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,122,255,0.12)}
+  .btn-danger{background:var(--danger)}
+  .btn-accent{background:var(--accent)}
+  .small-btn{width:auto;padding:8px 10px;border-radius:8px;font-weight:600}
+
+  /* Add box button */
+  .add-box-btn{background:linear-gradient(90deg,#34c759,#2bb24f);color:#fff;padding:12px;border-radius:12px;border:none;font-weight:800;cursor:pointer}
+
+  /* Boxes area (levá) */
+  #boxes{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+
+  /* Single box */
+  .box{
+    border-radius:10px;padding:12px;background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,250,250,0.98));
+    box-shadow:0 6px 18px rgba(0,0,0,0.04);
+  }
+  .box h3{font-size:16px;margin-bottom:8px}
+  .counter-row{display:flex;justify-content:space-between;align-items:center;margin:8px 0}
+  .counter-controls{display:flex;align-items:center;gap:8px}
+  .btn-counter{width:36px;height:36px;border-radius:8px;border:none;background:#f0f0f5;font-weight:800;cursor:pointer}
+  .count-value{min-width:28px;text-align:center;font-weight:700}
+
+  /* Collapsed list (po uložení) */
+  #collapsedList{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .collapsed-item{
+    display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:10px;background:linear-gradient(90deg,#fff,#fbfbfd);
+    border:1px solid #f0f0f5;cursor:pointer;
+  }
+  .collapsed-item .left{display:flex;align-items:center;gap:10px}
+  .badge{padding:6px 8px;border-radius:8px;font-weight:700;font-size:12px}
+  .badge-success{background:#e6f7ed;color:#0b6b2b}
+  .badge-danger{background:#ffecec;color:#8b1f1f}
+  .badge-neutral{background:#eef2ff;color:#1a4fbf}
+
+  /* History */
+  #logHistory{max-height:420px;overflow:auto;padding-right:6px}
+  .log-item{padding:10px;border-bottom:1px solid #f2f2f7}
+  .log-date{color:var(--muted);font-size:12px;margin-bottom:6px}
+
+  /* Totals & report */
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  table td{padding:8px;border-bottom:1px solid #f6f6f8}
+  table td:first-child{font-weight:700;color:#333;width:48%}
+  .controls-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+
+  /* Responsive */
+  @media (max-width:980px){
+    .layout{grid-template-columns:1fr; padding-bottom:40px}
+    #collapsedList{flex-direction:row;flex-wrap:wrap;gap:6px}
+    .collapsed-item{min-width:140px}
+  }
+
+  /* small helpers */
+  .muted{color:var(--muted);font-size:13px}
+  .tiny{font-size:12px;color:var(--muted)}
+  .center{text-align:center}
+</style>
+</head>
+
+<body>
+  <header>
+    <div>
+      <h1>Závěrečný report rozvozu</h1>
+      <div class="subtitle">Rychlé ukládání boxů • Sbalené záznamy • Exporty</div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Levá část: pracovní plocha + boxy -->
+    <section>
+      <div class="card">
+        <h2 style="margin-bottom:8px">QR kód rozvozu</h2>
+        <div class="qr-area">
+          <input type="file" id="qrFile" accept="image/*">
+          <div class="controls-row">
+            <button class="btn small-btn" onclick="saveQRImage()">Uložit QR kód</button>
+            <button class="btn small-btn btn-danger" onclick="deleteQR()">Smazat QR kód</button>
+          </div>
+          <div id="qrDisplay" class="center tiny" style="margin-top:8px">Žádný QR kód není uložen.</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h2>Základní údaje</h2>
+        <label>Linka / SPZ</label>
+        <input type="text" id="spzInput" placeholder="Např. AB-123CD">
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <div style="flex:1">
+            <label>Začátek rozvozu</label>
+            <input type="time" id="startInput">
+          </div>
+          <div style="flex:1">
+            <label>Konec rozvozu</label>
+            <input type="time" id="endInput">
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="add-box-btn" onclick="addBox()">➕ Přidat nový box</button>
+        <button class="btn small-btn" onclick="clearActiveBoxes()">Vyčistit pracovní plochu</button>
+      </div>
+
+      <div id="boxes"></div>
+
+      <div class="card" style="margin-top:12px">
+        <h2>Sbalené boxy</h2>
+        <div id="collapsedList" class="muted">Žádné uložené boxy.</div>
+      </div>
+    </section>
+
+    <!-- Pravá část: historie, součty, report -->
+    <aside>
+      <div class="card">
+        <h2>Historie všech boxů</h2>
+        <div id="logHistory" class="tiny">Žádné záznamy.</div>
+        <div style="margin-top:10px">
+          <button class="btn btn-danger" onclick="deleteAllLogs()">Smazat celou historii</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h2>Celkové součty</h2>
+        <div id="totals" class="tiny">Žádné záznamy.</div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h2>Závěrečný report – tabulka</h2>
+        <table>
+          <tr><td>1. Linka/SPZ:</td><td id="rep-spz"></td></tr>
+          <tr><td>2. Začátek:</td><td id="rep-start"></td></tr>
+          <tr><td>3. Konec:</td><td id="rep-end"></td></tr>
+          <tr><td>4. Neplatný kód:</td><td id="rep-invalid"></td></tr>
+          <tr><td>5. Storno:</td><td id="rep-canceled"></td></tr>
+          <tr><td>6. Nevešlo se:</td><td id="rep-nospace"></td></tr>
+          <tr><td>7. Špatně zatřízeno:</td><td id="rep-missorted"></td></tr>
+          <tr><td>8. Poškozeno:</td><td id="rep-damaged"></td></tr>
+          <tr><td>9. Bez štítku:</td><td id="rep-nolabel"></td></tr>
+          <tr><td>10. Vratky:</td><td id="rep-returned"></td></tr>
+          <tr><td>11. Chybějící balíky:</td><td id="rep-missing"></td></tr>
+          <tr><td>12. Nefunkční boxy:</td><td id="rep-brokenbox"></td></tr>
+          <tr><td>13. Poznámky:</td><td><textarea id="rep-notes" placeholder="Poznámky k rozvozu"></textarea></td></tr>
+        </table>
+
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn whatsapp-anim" onclick="sendReportWhatsApp()">📤 Odeslat přes WhatsApp</button>
+          <button class="btn" onclick="downloadTXT()">💾 Uložit jako TXT</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+</body>
+</html>
+<!-- JavaScript část A (QR, přidávání boxů, ukládání, historie, součty, sbalené boxy, schování po uložení) -->
+<script>
+/* Globální */
+let boxCounter = 0;
+
+/* ---------- QR: uložení / smazání / zobrazení ---------- */
+function saveQRImage(){
+  const file = document.getElementById("qrFile").files[0];
+  if(!file) return alert("Vyber obrázek QR kódu.");
+  const r = new FileReader();
+  r.onload = e => {
+    localStorage.setItem("qr_code_image", e.target.result);
+    renderQRImage();
+  };
+  r.readAsDataURL(file);
+}
+function deleteQR(){
+  if(!confirm("Opravdu smazat uložený QR kód?")) return;
+  localStorage.removeItem("qr_code_image");
+  renderQRImage();
+}
+function renderQRImage(){
+  const base64 = localStorage.getItem("qr_code_image");
+  const el = document.getElementById("qrDisplay");
+  el.innerHTML = base64
+    ? `<img src="${base64}" alt="QR kód">`
+    : "Žádný QR kód není uložen.";
+}
+
+/* ---------- Pracovní boxy: přidání, ovládání počítadel ---------- */
+function addBox(prefill = {}) {
+  boxCounter++;
+  const id = `box-${boxCounter}`;
+  const container = document.getElementById("boxes");
+  const html = `
+    <div class="box" id="${id}">
+      <h3 id="${id}-title">Box ${boxCounter}</h3>
+      <input type="text" id="${id}-name" placeholder="Název boxu" oninput="updateBoxTitle('${id}')">
+      <div class="counter-row">
+        <div class="muted">Vratky</div>
+        <div class="counter-controls">
+          <button class="btn-counter" onclick="changeCount('${id}','returned',-1)">-</button>
+          <div class="count-value" id="${id}-returned">0</div>
+          <button class="btn-counter" onclick="changeCount('${id}','returned',1)">+</button>
+        </div>
+      </div>
+      <div class="counter-row">
+        <div class="muted">Storno</div>
+        <div class="counter-controls">
+          <button class="btn-counter" onclick="changeCount('${id}','canceled',-1)">-</button>
+          <div class="count-value" id="${id}-canceled">0</div>
+          <button class="btn-counter" onclick="changeCount('${id}','canceled',1)">+</button>
+        </div>
+      </div>
+      <div class="counter-row">
+        <div class="muted">Neplatné kódy</div>
+        <div class="counter-controls">
+          <button class="btn-counter" onclick="changeCount('${id}','invalid',-1)">-</button>
+          <div class="count-value" id="${id}-invalid">0</div>
+          <button class="btn-counter" onclick="changeCount('${id}','invalid',1)">+</button>
+        </div>
+      </div>
+      <div class="counter-row">
+        <div class="muted">Poškozeno</div>
+        <div class="counter-controls">
+          <button class="btn-counter" onclick="changeCount('${id}','damaged',-1)">-</button>
+          <div class="count-value" id="${id}-damaged">0</div>
+          <button class="btn-counter" onclick="changeCount('${id}','damaged',1)">+</button>
+        </div>
+      </div>
+      <div class="counter-row">
+        <div class="muted">Nevešlo se</div>
+        <div class="counter-controls">
+          <button class="btn-counter" onclick="changeCount('${id}','nospace',-1)">-</button>
+          <div class="count-value" id="${id}-nospace">0</div>
+          <button class="btn-counter" onclick="changeCount('${id}','nospace',1)">+</button>
+        </div>
+      </div>
+      <div class="counter-row">
+        <div class="muted">Špatně zatřízeno</div>
+        <div class="counter-controls">
+          <button class="btn-counter" onclick="changeCount('${id}','missorted',-1)">-</button>
+          <div class="count-value" id="${id}-missorted">0</div>
+          <button class="btn-counter" onclick="changeCount('${id}','missorted',1)">+</button>
+        </div>
+      </div>
+      <div class="counter-row">
+        <div class="muted">Bez štítku</div>
+        <div class="counter-controls">
+          <button class="btn-counter" onclick="changeCount('${id}','nolabel',-1)">-</button>
+          <div class="count-value" id="${id}-nolabel">0</div>
+          <button class="btn-counter" onclick="changeCount('${id}','nolabel',1)">+</button>
+        </div>
+      </div>
+      <div class="counter-row">
+        <div class="muted">Chybějící balíky</div>
+        <div class="counter-controls">
+          <button class="btn-counter" onclick="changeCount('${id}','missing',-1)">-</button>
+          <div class="count-value" id="${id}-missing">0</div>
+          <button class="btn-counter" onclick="changeCount('${id}','missing',1)">+</button>
+        </div>
+      </div>
+      <div class="counter-row">
+        <div class="muted">Nefunkční box</div>
+        <div class="counter-controls">
+          <button class="btn-counter" onclick="changeCount('${id}','brokenbox',-1)">-</button>
+          <div class="count-value" id="${id}-brokenbox">0</div>
+          <button class="btn-counter" onclick="changeCount('${id}','brokenbox',1)">+</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="${id}-finished"> Box hotov</label>
+        <button class="btn small-btn" onclick="saveBox('${id}')">Uložit záznam</button>
+        <button class="btn small-btn btn-danger" onclick="removeActiveBox('${id}')">Zrušit</button>
+      </div>
+    </div>
+  `;
+  container.insertAdjacentHTML("beforeend", html);
+
+  // pokud předvyplněno (pouze při importu nebo editaci)
+  if(prefill.name) document.getElementById(`${id}-name`).value = prefill.name;
+  if(prefill.title) document.getElementById(`${id}-title`).innerText = prefill.title;
+}
+
+/* Pomocné pro změnu počtu */
+function changeCount(id, key, delta){
+  const el = document.getElementById(`${id}-${key}`);
+  if(!el) return;
+  let v = parseInt(el.innerText || "0", 10) + delta;
+  if(v < 0) v = 0;
+  el.innerText = v;
+  // krátká animace
+  el.classList.remove("count-bump");
+  void el.offsetWidth;
+  el.classList.add("count-bump");
+}
+
+/* Aktualizace názvu boxu */
+function updateBoxTitle(id){
+  const name = document.getElementById(`${id}-name`).value.trim();
+  document.getElementById(`${id}-title`).innerText = name || `Box ${id.split("-")[1]}`;
+}
+
+/* Odebrání aktivního boxu bez uložení */
+function removeActiveBox(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(!confirm("Opravdu zrušit tento aktivní box?")) return;
+  el.remove();
+}
+
+/* Vyčistit pracovní plochu (všechny aktivní boxy) */
+function clearActiveBoxes(){
+  if(!confirm("Vyčistit všechny aktivní boxy?")) return;
+  document.getElementById("boxes").innerHTML = "";
+}
+
+/* ---------- Uložení boxu: uloží do historie, vytvoří sbalený řádek a schová aktivní box ---------- */
+function saveBox(id){
+  // sestav log objekt
+  const name = document.getElementById(`${id}-name`).value || `Box ${id.split("-")[1]}`;
+  const log = {
+    name,
+    timestamp: new Date().toLocaleString("cs-CZ"),
+    returned: +document.getElementById(`${id}-returned`).innerText,
+    canceled: +document.getElementById(`${id}-canceled`).innerText,
+    invalid: +document.getElementById(`${id}-invalid`).innerText,
+    damaged: +document.getElementById(`${id}-damaged`).innerText,
+    nospace: +document.getElementById(`${id}-nospace`).innerText,
+    missorted: +document.getElementById(`${id}-missorted`).innerText,
+    nolabel: +document.getElementById(`${id}-nolabel`).innerText,
+    missing: +document.getElementById(`${id}-missing`).innerText,
+    brokenbox: +document.getElementById(`${id}-brokenbox`).innerText,
+    finished: document.getElementById(`${id}-finished`).checked
+  };
+
+  // uložit do localStorage (na začátek)
+  const logs = JSON.parse(localStorage.getItem("alza_logs") || "[]");
+  logs.unshift(log);
+  localStorage.setItem("alza_logs", JSON.stringify(logs));
+
+  // vytvořit sbalený řádek (collapsed)
+  createCollapsedItem(log);
+
+  // odstranit aktivní box z pracovní plochy (schovat po uložení)
+  const el = document.getElementById(id);
+  if(el) el.remove();
+
+  // aktualizovat pravou část
+  renderLogs();
+  renderTotals();
+  renderReport();
+
+  // krátké potvrzení
+  flashSaved();
+}
+
+/* Vytvoří sbalený řádek v #collapsedList */
+function createCollapsedItem(log){
+  const list = document.getElementById("collapsedList");
+  // pokud je první záznam, vyčistit text "Žádné uložené boxy."
+  if(list.innerText.trim() === "Žádné uložené boxy.") list.innerHTML = "";
+
+  const statusClass = log.finished ? "badge-success" : "badge-danger";
+  const statusText = log.finished ? "HOTOVO" : "NEDONOSENO";
+  const icon = "📦";
+
+  const id = `collapsed-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+  const item = document.createElement("div");
+  item.className = "collapsed-item";
+  item.id = id;
+  item.innerHTML = `
+    <div class="left">
+      <div style="font-weight:700">${icon} ${escapeHtml(log.name)}</div>
+      <div class="tiny muted" style="margin-left:6px">${log.timestamp}</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="badge ${statusClass}">${statusText}</div>
+      <button class="small-btn" onclick="expandCollapsed('${id}')">Detail</button>
+      <button class="small-btn btn-danger" onclick="deleteCollapsed('${id}')">Smazat</button>
+    </div>
+  `;
+  // vložit nahoře
+  list.insertAdjacentElement("afterbegin", item);
+}
+
+/* Rozbalit sbalený box: zobrazí modal-like detail (jednoduché alert okno) */
+function expandCollapsed(collapsedId){
+  const el = document.getElementById(collapsedId);
+  if(!el) return;
+  // najít odpovídající log podle názvu a timestamp (jednoduché porovnání)
+  const title = el.querySelector(".left > div").innerText.replace("📦 ","");
+  const ts = el.querySelector(".left .tiny").innerText;
+  const logs = JSON.parse(localStorage.getItem("alza_logs") || "[]");
+  const found = logs.find(l => l.name === title && l.timestamp === ts);
+  if(!found){
+    alert("Detail nenalezen.");
+    return;
+  }
+  // vytvořit text detailu
+  const txt = [
+    `Box: ${found.name}`,
+    `Čas: ${found.timestamp}`,
+    `Stav: ${found.finished ? "HOTOVO" : "NEDONOSENO"}`,
+    `Vratky: ${found.returned}`,
+    `Storno: ${found.canceled}`,
+    `Neplatné kódy: ${found.invalid}`,
+    `Poškozeno: ${found.damaged}`,
+    `Nevešlo se: ${found.nospace}`,
+    `Špatně zatřízeno: ${found.missorted}`,
+    `Bez štítku: ${found.nolabel}`,
+    `Chybějící balíky: ${found.missing}`,
+    `Nefunkční box: ${found.brokenbox}`
+  ].join("\n");
+  alert(txt);
+}
+
+/* Smazat sbalený řádek (nebo z historie) */
+function deleteCollapsed(collapsedId){
+  if(!confirm("Smazat tento uložený box?")) return;
+  const el = document.getElementById(collapsedId);
+  if(!el) return;
+  // najít název a timestamp a odstranit z localStorage
+  const title = el.querySelector(".left > div").innerText.replace("📦 ","");
+  const ts = el.querySelector(".left .tiny").innerText;
+  let logs = JSON.parse(localStorage.getItem("alza_logs") || "[]");
+  logs = logs.filter(l => !(l.name === title && l.timestamp === ts));
+  localStorage.setItem("alza_logs", JSON.stringify(logs));
+  // odstranit element
+  el.remove();
+  // pokud prázdné, zobraz text
+  const list = document.getElementById("collapsedList");
+  if(!list.children.length) list.innerHTML = "Žádné uložené boxy.";
+  renderLogs();
+  renderTotals();
+  renderReport();
+}
+
+/* ---------- Historie (pravá část) ---------- */
+function renderLogs(){
+  const logs = JSON.parse(localStorage.getItem("alza_logs") || "[]");
+  const div = document.getElementById("logHistory");
+  if(!logs.length){ div.innerHTML = "Žádné záznamy."; return; }
+  div.innerHTML = logs.map((l,i) => `
+    <div class="log-item">
+      <div class="log-date">${l.timestamp}</div>
+      <div style="font-weight:700">${escapeHtml(l.name)}</div>
+      <div class="tiny">Vratky: ${l.returned} | Storno: ${l.canceled} | Neplatné: ${l.invalid}</div>
+      <div class="tiny">Poškozeno: ${l.damaged} | Nevešlo se: ${l.nospace} | Špatně: ${l.missorted}</div>
+      <div class="tiny">Bez štítku: ${l.nolabel} | Chybějící: ${l.missing} | Nefunkční: ${l.brokenbox}</div>
+      <div style="margin-top:6px">
+        <button class="small-btn" onclick="loadLogToActive(${i})">Načíst</button>
+        <button class="small-btn btn-danger" onclick="deleteLog(${i})">Smazat</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+/* Načíst záznam zpět do aktivního boxu pro editaci */
+function loadLogToActive(index){
+  const logs = JSON.parse(localStorage.getItem("alza_logs") || "[]");
+  const l = logs[index];
+  if(!l) return alert("Záznam nenalezen.");
+  // vytvořit nový aktivní box s předvyplněnými hodnotami
+  addBox({ name: l.name, title: l.name });
+  const id = `box-${boxCounter}`;
+  document.getElementById(`${id}-returned`).innerText = l.returned;
+  document.getElementById(`${id}-canceled`).innerText = l.canceled;
+  document.getElementById(`${id}-invalid`).innerText = l.invalid;
+  document.getElementById(`${id}-damaged`).innerText = l.damaged;
+  document.getElementById(`${id}-nospace`).innerText = l.nospace;
+  document.getElementById(`${id}-missorted`).innerText = l.missorted;
+  document.getElementById(`${id}-nolabel`).innerText = l.nolabel;
+  document.getElementById(`${id}-missing`).innerText = l.missing;
+  document.getElementById(`${id}-brokenbox`).innerText = l.brokenbox;
+  document.getElementById(`${id}-finished`).checked = l.finished;
+}
+
+/* Smazat jeden log z historie */
+function deleteLog(i){
+  if(!confirm("Smazat tento záznam z historie?")) return;
+  const logs = JSON.parse(localStorage.getItem("alza_logs") || "[]");
+  logs.splice(i,1);
+  localStorage.setItem("alza_logs", JSON.stringify(logs));
+  // také odstranit odpovídající collapsed položku (pokud existuje)
+  // jednoduché: znovu vykreslit collapsed list z logů
+  rebuildCollapsedFromLogs();
+  renderLogs();
+  renderTotals();
+  renderReport();
+}
+
+/* Smazat vše */
+function deleteAllLogs(){
+  if(!confirm("Smazat celou historii? Tuto akci nelze vrátit.")) return;
+  localStorage.removeItem("alza_logs");
+  document.getElementById("collapsedList").innerHTML = "Žádné uložené boxy.";
+  renderLogs();
+  renderTotals();
+  renderReport();
+}
+
+/* Přestavět collapsed list z logů (po smazání) */
+function rebuildCollapsedFromLogs(){
+  const logs = JSON.parse(localStorage.getItem("alza_logs") || "[]");
+  const list = document.getElementById("collapsedList");
+  list.innerHTML = "";
+  if(!logs.length){ list.innerHTML = "Žádné uložené boxy."; return; }
+  logs.forEach(l => createCollapsedItem(l));
+}
+
+/* ---------- Součty a report (pravá část) ---------- */
+function renderTotals(){
+  const logs = JSON.parse(localStorage.getItem("alza_logs") || "[]");
+  const t = document.getElementById("totals");
+  if(!logs.length){ t.innerHTML = "Žádné záznamy."; return; }
+  const sum = { returned:0,canceled:0,invalid:0,damaged:0,nospace:0,missorted:0,nolabel:0,missing:0,brokenbox:0 };
+  logs.forEach(l => Object.keys(sum).forEach(k => sum[k] += (l[k] || 0)));
+  const labels = {
+    returned: "Vratky",
+    canceled: "Storno",
+    invalid: "Neplatné kódy",
+    damaged: "Poškozeno",
+    nospace: "Nevešlo se",
+    missorted: "Špatně zatřízeno",
+    nolabel: "Bez štítku",
+    missing: "Chybějící balíky",
+    brokenbox: "Nefunkční boxy"
+  };
+  t.innerHTML = Object.entries(sum).map(([k,v]) => `${labels[k]}: <b>${v}</b>`).join("<br>");
+}
+
+/* Render report fields (základní) */
+function renderReport(){
+  const logs = JSON.parse(localStorage.getItem("alza_logs") || "[]");
+  const sum = { returned:0,canceled:0,invalid:0,damaged:0,nospace:0,missorted:0,nolabel:0,missing:0,brokenbox:0 };
+  logs.forEach(l => Object.keys(sum).forEach(k => sum[k] += (l[k] || 0)));
+
+  document.getElementById("rep-spz").innerText = document.getElementById("spzInput").value || "";
+  document.getElementById("rep-start").innerText = document.getElementById("startInput").value || "";
+  document.getElementById("rep-end").innerText = document.getElementById("endInput").value || "";
+
+  Object.keys(sum).forEach(k => {
+    const el = document.getElementById(`rep-${k}`);
+    if(el) el.innerText = sum[k];
+  });
+}
+
+/* ---------- Exporty (TXT + WhatsApp) ---------- */
+function generateReportText(){
+  return `
+Závěrečný report rozvozu
+
+1) Linka/SPZ: ${document.getElementById("rep-spz").innerText}
+2) Začátek: ${document.getElementById("rep-start").innerText}
+3) Konec: ${document.getElementById("rep-end").innerText}
+
+4) Neplatný kód: ${document.getElementById("rep-invalid").innerText}
+5) Storno: ${document.getElementById("rep-canceled").innerText}
+6) Nevešlo se: ${document.getElementById("rep-nospace").innerText}
+7) Špatně zatřízeno: ${document.getElementById("rep-missorted").innerText}
+8) Poškozeno: ${document.getElementById("rep-damaged").innerText}
+9) Bez štítku: ${document.getElementById("rep-nolabel").innerText}
+10) Vratky: ${document.getElementById("rep-returned").innerText}
+11) Chybějící balíky: ${document.getElementById("rep-missing").innerText}
+12) Nefunkční boxy: ${document.getElementById("rep-brokenbox").innerText}
+
+13) Poznámky:
+${document.getElementById("rep-notes").value || ""}
+  `;
+}
+function sendReportWhatsApp(){
+  const url = "https://wa.me/?text=" + encodeURIComponent(generateReportText());
+  window.open(url, "_blank");
+}
+function downloadTXT(){
+  const blob = new Blob([generateReportText()], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "zaverecny_report.txt";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- Utility: malé vizuální potvrzení uložení ---------- */
+function flashSaved(){
+  const btn = document.querySelector(".add-box-btn");
+  if(!btn) return;
+  const orig = btn.innerText;
+  btn.innerText = "Uloženo ✓";
+  btn.style.transform = "scale(0.98)";
+  setTimeout(()=>{ btn.innerText = orig; btn.style.transform = ""; }, 900);
+}
+
+/* ---------- Utility: bezpečné escapování textu pro HTML ---------- */
+function escapeHtml(s){
+  if(!s) return "";
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- Inicializace při načtení stránky ---------- */
+(function init(){
+  renderQRImage();
+  renderLogs();
+  renderTotals();
+  renderReport();
+  // rebuild collapsed list from existing logs
+  rebuildCollapsedFromLogs();
+})();
+</script>
+<script>
+/* ---------- Doplňky: automatické ukládání SPZ a časů ---------- */
+const STORAGE_KEYS = {
+  spz: "alza_spz",
+  start: "alza_start",
+  end: "alza_end"
+};
+
+function saveBasicInfoToStorage(){
+  localStorage.setItem(STORAGE_KEYS.spz, document.getElementById("spzInput").value || "");
+  localStorage.setItem(STORAGE_KEYS.start, document.getElementById("startInput").value || "");
+  localStorage.setItem(STORAGE_KEYS.end, document.getElementById("endInput").value || "");
+  // aktualizovat report okamžitě
+  renderReport();
+}
+
+function loadBasicInfoFromStorage(){
+  const spz = localStorage.getItem(STORAGE_KEYS.spz) || "";
+  const start = localStorage.getItem(STORAGE_KEYS.start) || "";
+  const end = localStorage.getItem(STORAGE_KEYS.end) || "";
+  document.getElementById("spzInput").value = spz;
+  document.getElementById("startInput").value = start;
+  document.getElementById("endInput").value = end;
+  renderReport();
+}
+
+/* připojit event listenery pro automatické ukládání */
+document.addEventListener("DOMContentLoaded", () => {
+  const spzEl = document.getElementById("spzInput");
+  const startEl = document.getElementById("startInput");
+  const endEl = document.getElementById("endInput");
+  if(spzEl) spzEl.addEventListener("input", saveBasicInfoToStorage);
+  if(startEl) startEl.addEventListener("change", saveBasicInfoToStorage);
+  if(endEl) endEl.addEventListener("change", saveBasicInfoToStorage);
+});
+
+/* ---------- Drobné UI vylepšení: animace při vložení collapsed položky ---------- */
+function animateCollapsed(el){
+  el.style.transform = "translateY(-6px)";
+  el.style.opacity = "0";
+  requestAnimationFrame(()=> {
+    el.style.transition = "transform .28s ease, opacity .28s ease";
+    el.style.transform = "translateY(0)";
+    el.style.opacity = "1";
+  });
+}
+
+/* upravená createCollapsedItem s animací */
+function createCollapsedItem(log){
+  const list = document.getElementById("collapsedList");
+  if(list.innerText.trim() === "Žádné uložené boxy.") list.innerHTML = "";
+
+  const statusClass = log.finished ? "badge-success" : "badge-danger";
+  const statusText = log.finished ? "HOTOVO" : "NEDONOSENO";
+  const icon = "📦";
+
+  const id = `collapsed-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+  const item = document.createElement("div");
+  item.className = "collapsed-item";
+  item.id = id;
+  item.innerHTML = `
+    <div class="left">
+      <div style="font-weight:700">${icon} ${escapeHtml(log.name)}</div>
+      <div class="tiny muted" style="margin-left:6px">${log.timestamp}</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="badge ${statusClass}">${statusText}</div>
+      <button class="small-btn" onclick="expandCollapsed('${id}')">Detail</button>
+      <button class="small-btn btn-danger" onclick="deleteCollapsed('${id}')">Smazat</button>
+    </div>
+  `;
+  list.insertAdjacentElement("afterbegin", item);
+  animateCollapsed(item);
+}
+
+/* ---------- Funkce pro vyčištění sbalených položek (pokud chceš) ---------- */
+function clearCollapsedList(){
+  if(!confirm("Smazat všechny sbalené položky?")) return;
+  // smažeme z localStorage i z UI
+  localStorage.removeItem("alza_logs");
+  document.getElementById("collapsedList").innerHTML = "Žádné uložené boxy.";
+  renderLogs();
+  renderTotals();
+  renderReport();
+}
+
+/* ---------- Service Worker registrace (volitelně) ---------- */
+/* Pokud chceš PWA chování, přidej do rootu soubor service-worker.js a odkomentuj registraci. */
+if('serviceWorker' in navigator){
+  // registrace je volitelná; pokud máš service-worker.js, odkomentuj následující řádky
+  /*
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(reg => console.log('ServiceWorker registered', reg))
+      .catch(err => console.warn('ServiceWorker registration failed', err));
+  });
+  */
+}
+
+/* ---------- Aktualizovaná inicializace (načíst uložené SPZ/časy + collapsed) ---------- */
+(function initFinal(){
+  loadBasicInfoFromStorage();
+  renderQRImage();
+  renderLogs();
+  renderTotals();
+  renderReport();
+  rebuildCollapsedFromLogs();
+})();
+</script>
